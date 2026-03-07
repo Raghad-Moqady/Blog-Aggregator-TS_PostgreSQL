@@ -1,5 +1,5 @@
 import { setUser, readConfig } from "./config.js";
-import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feedFollows.js";
+import { createFeedFollow, deleteFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feedFollows.js";
 import { createFeed, getFeedByUrl, getFeeds } from "./lib/db/queries/feeds.js";
 import { createUser, getCurrentUser, getUserByname, getUsers, resetUsers } from "./lib/db/queries/users.js";
 import { User } from "./lib/db/schema.js";
@@ -123,6 +123,19 @@ async function handlerFollowing(cmdName: string, user: User){
     console.log(follow.feedName);
   }
 };
+async function handlerUnFollow(cmdName: string, user: User, ...args: string[]){
+  const url = args[0];
+
+  const feed = await getFeedByUrl(url);
+
+  if (!feed) {
+    console.log("Feed not found");
+    return;
+  }
+
+  await deleteFeedFollow(user.id, feed.id);
+  console.log(`Unfollowed ${feed.name}`);
+};
 
 async function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler){
   registry[cmdName] = handler;
@@ -164,8 +177,8 @@ async function main() {
   await registerCommand(registry, "feeds", handlerShowFeeds);
   await registerCommand(registry, "follow",middlewareLoggedIn(handlerFollow));
   await registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
-
-
+  await registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnFollow));
+   
   const args = process.argv.slice(2);
 
   if (args.length < 1) {
