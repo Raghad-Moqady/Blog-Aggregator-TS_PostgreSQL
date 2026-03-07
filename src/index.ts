@@ -1,5 +1,6 @@
 import { setUser, readConfig } from "./config.js";
-import { createFeed, getFeeds } from "./lib/db/queries/feeds.js";
+import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feedFollows.js";
+import { createFeed, getFeedByUrl, getFeeds } from "./lib/db/queries/feeds.js";
 import { createUser, getCurrentUser, getUserByname, getUsers, resetUsers } from "./lib/db/queries/users.js";
 import { printFeed } from "./lib/printFeed.js";
 import { fetchFeed } from "./rss/fetchFeed.js";
@@ -73,9 +74,10 @@ async function handlerAddFeed(cmdName: string, ...args: string[]) {
   const url = args[1];
 
 
-  const user = await getCurrentUser();
-
+  const user = await getCurrentUser(); 
   const feed = await createFeed(name, url, user.id);
+
+  await createFeedFollow(user.id, feed.id);
 
   printFeed(feed, user);
 }
@@ -95,6 +97,31 @@ async function handlerShowFeeds(cmdName: string, ...args: string[]) {
     console.log("-------------");
   }
 }
+async function handlerFollow(cmdName: string, ...args: string[]){
+  const url = args[0];
+
+  const user = await getCurrentUser();
+
+  const feed = await getFeedByUrl(url);
+
+  if (!feed) {
+    console.log("Feed not found");
+    return;
+  }
+
+  const follow = await createFeedFollow(user.id, feed.id);
+
+  console.log(`${follow.userName} is now following ${follow.feedName}`);
+};
+async function handlerFollowing(){
+  const user = await getCurrentUser();
+
+  const follows = await getFeedFollowsForUser(user.id);
+
+  for (const follow of follows) {
+    console.log(follow.feedName);
+  }
+};
 
 async function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler){
   registry[cmdName] = handler;
@@ -123,6 +150,8 @@ async function main() {
   await registerCommand(registry, "agg", handlerAgg);
   await registerCommand(registry, "addfeed", handlerAddFeed);
   await registerCommand(registry, "feeds", handlerShowFeeds);
+  await registerCommand(registry, "follow", handlerFollow);
+  await registerCommand(registry, "following", handlerFollowing);
 
 
   const args = process.argv.slice(2);
