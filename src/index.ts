@@ -2,10 +2,16 @@ import { setUser, readConfig } from "./config.js";
 import { createFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feedFollows.js";
 import { createFeed, getFeedByUrl, getFeeds } from "./lib/db/queries/feeds.js";
 import { createUser, getCurrentUser, getUserByname, getUsers, resetUsers } from "./lib/db/queries/users.js";
+import { User } from "./lib/db/schema.js";
 import { printFeed } from "./lib/printFeed.js";
 import { fetchFeed } from "./rss/fetchFeed.js";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 type CommandsRegistry = Record<string, CommandHandler>;
+type UserCommandHandler = (
+  cmdName: string,
+  user: User,
+  ...args: string[]
+) => Promise<void>;
 
 async function handlerLogin(cmdName: string, ...args: string[]){
   if(args.length==0){
@@ -65,7 +71,7 @@ async function handlerAgg(cmdName: string) {
   console.log(JSON.stringify(feed, null, 2));
 }
  
-async function handlerAddFeed(cmdName: string, ...args: string[]) {
+async function handlerAddFeed(cmdName: string, user: User, ...args: string[]) {
   if (args.length < 2) {
     throw new Error("Usage: addfeed <name> <url>");
   }
@@ -73,8 +79,7 @@ async function handlerAddFeed(cmdName: string, ...args: string[]) {
   const name = args[0];
   const url = args[1];
 
-
-  const user = await getCurrentUser(); 
+ 
   const feed = await createFeed(name, url, user.id);
 
   await createFeedFollow(user.id, feed.id);
@@ -97,10 +102,8 @@ async function handlerShowFeeds(cmdName: string, ...args: string[]) {
     console.log("-------------");
   }
 }
-async function handlerFollow(cmdName: string, ...args: string[]){
+async function handlerFollow(cmdName: string, user: User, ...args: string[]){
   const url = args[0];
-
-  const user = await getCurrentUser();
 
   const feed = await getFeedByUrl(url);
 
@@ -113,9 +116,7 @@ async function handlerFollow(cmdName: string, ...args: string[]){
 
   console.log(`${follow.userName} is now following ${follow.feedName}`);
 };
-async function handlerFollowing(){
-  const user = await getCurrentUser();
-
+async function handlerFollowing(cmdName: string, user: User){
   const follows = await getFeedFollowsForUser(user.id);
 
   for (const follow of follows) {
@@ -135,6 +136,17 @@ async function runCommand(registry: CommandsRegistry, cmdName: string, ...args: 
 
   await handler(cmdName, ...args);
 }
+function middlewareLoggedIn(handler: UserCommandHandler): CommandHandler {
+  return async (cmdName: string, ...args: string[]) => {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      throw new Error("No user logged in");
+    }
+
+    await handler(cmdName, user, ...args);
+  };
+}
 
 async function main() {
   // setUser("Raghad");
@@ -148,10 +160,10 @@ async function main() {
   await registerCommand(registry, "reset", handlerReset);
   await registerCommand(registry, "users", handlerUsers);
   await registerCommand(registry, "agg", handlerAgg);
-  await registerCommand(registry, "addfeed", handlerAddFeed);
+  await registerCommand(registry, "addfeed",  middlewareLoggedIn(handlerAddFeed));
   await registerCommand(registry, "feeds", handlerShowFeeds);
-  await registerCommand(registry, "follow", handlerFollow);
-  await registerCommand(registry, "following", handlerFollowing);
+  await registerCommand(registry, "follow",middlewareLoggedIn(handlerFollow));
+  await registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
 
 
   const args = process.argv.slice(2);
