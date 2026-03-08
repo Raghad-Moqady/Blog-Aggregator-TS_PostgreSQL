@@ -1,10 +1,12 @@
 import { setUser, readConfig } from "./config.js";
 import { createFeedFollow, deleteFeedFollow, getFeedFollowsForUser } from "./lib/db/queries/feedFollows.js";
 import { createFeed, getFeedByUrl, getFeeds } from "./lib/db/queries/feeds.js";
+import { getPostsForUser } from "./lib/db/queries/posts.js";
 import { createUser, getCurrentUser, getUserByname, getUsers, resetUsers } from "./lib/db/queries/users.js";
 import { User } from "./lib/db/schema.js";
 import { printFeed } from "./lib/printFeed.js";
 import { fetchFeed } from "./rss/fetchFeed.js";
+import { scrapeFeeds } from "./rss/scrapeFeeds.js";
 type CommandHandler = (cmdName: string, ...args: string[]) => Promise<void>;
 type CommandsRegistry = Record<string, CommandHandler>;
 type UserCommandHandler = (
@@ -66,9 +68,29 @@ async function handlerUsers(cmdName: string) {
     console.log(`* ${u.name}${currentWord}`);
   });
 }
-async function handlerAgg(cmdName: string) {
-  const feed = await fetchFeed("https://www.wagslane.dev/index.xml");
-  console.log(JSON.stringify(feed, null, 2));
+ 
+async function handlerAgg(cmdName: string, ...args: string[]) {
+  const timeBetweenRequests = parseDuration(args[0]);
+
+  console.log(`Collecting feeds every ${args[0]}`);
+
+  const handleError = (err: Error) => {
+    console.error(err);
+  };
+
+  scrapeFeeds().catch(handleError);
+
+  const interval = setInterval(() => {
+    scrapeFeeds().catch(handleError);
+  }, timeBetweenRequests);
+
+  await new Promise<void>((resolve) => {
+    process.on("SIGINT", () => {
+      console.log("Shutting down feed aggregator...");
+      clearInterval(interval);
+      resolve();
+    });
+  });
 }
  
 async function handlerAddFeed(cmdName: string, user: User, ...args: string[]) {
@@ -137,6 +159,43 @@ async function handlerUnFollow(cmdName: string, user: User, ...args: string[]){
   console.log(`Unfollowed ${feed.name}`);
 };
 
+async function handlerBrowse(cmdName: string, user: User, ...args: string[]) {
+  const limit = args[0] ? parseInt(args[0]) : 2;
+
+  const posts = await getPostsForUser(user.id, limit);
+
+  for (const post of posts) {
+    console.log(`${post.title}`);
+    console.log(`${post.url}`);
+    console.log(`from: ${post.feedName}`);
+    console.log("----");
+  }
+}
+function parseDuration(durationStr: string): number {
+  const regex = /^(\d+)(ms|s|m|h)$/;
+  const match = durationStr.match(regex);
+
+  if (!match) {
+    throw new Error("Invalid duration");
+  }
+
+  const value = parseInt(match[1]);
+  const unit = match[2];
+
+  switch (unit) {
+    case "ms":
+      return value;
+    case "s":
+      return value * 1000;
+    case "m":
+      return value * 60000;
+    case "h":
+      return value * 3600000;
+    default:
+      throw new Error("Invalid duration unit");
+  }
+}
+
 async function registerCommand(registry: CommandsRegistry, cmdName: string, handler: CommandHandler){
   registry[cmdName] = handler;
 }
@@ -178,7 +237,8 @@ async function main() {
   await registerCommand(registry, "follow",middlewareLoggedIn(handlerFollow));
   await registerCommand(registry, "following", middlewareLoggedIn(handlerFollowing));
   await registerCommand(registry, "unfollow", middlewareLoggedIn(handlerUnFollow));
-   
+  await registerCommand(registry, "browse", middlewareLoggedIn(handlerBrowse));
+
   const args = process.argv.slice(2);
 
   if (args.length < 1) {

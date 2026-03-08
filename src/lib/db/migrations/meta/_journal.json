@@ -8,6 +8,20 @@
       "when": 1772832809638,
       "tag": "0000_safe_pixie",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772911800079,
+      "tag": "0001_ambitious_taskmaster",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772933876476,
+      "tag": "0002_remarkable_ultimo",
+      "breakpoints": true
     }
   ]
 }
