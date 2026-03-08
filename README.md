@@ -82,7 +82,9 @@ npm run start register alice
 
 ## Commands
 
-### Register a user
+### register
+
+Create a new user.
 
 ```
 register <username>
@@ -96,15 +98,63 @@ register alice
 
 ---
 
-### Login
+### login
+
+Log in with an existing user.
 
 ```
 login <username>
 ```
 
+Example:
+
+```
+login alice
+```
+
 ---
 
-### Add a feed
+### users
+
+Display all registered users.
+
+```
+users
+```
+
+---
+
+### reset
+
+Reset the database (delete all users and data).
+
+```
+reset
+```
+
+---
+
+### agg
+
+Start the feed aggregator that fetches RSS feeds at a specified interval.
+
+```
+agg <time>
+```
+
+Example:
+
+```
+agg 10s
+```
+
+This will fetch feeds every 10 seconds.
+
+---
+
+### addfeed
+
+Add a new RSS feed and follow it.
 
 ```
 addfeed <name> <url>
@@ -118,29 +168,61 @@ addfeed TechCrunch https://techcrunch.com/feed/
 
 ---
 
-### Start the feed aggregator
+### feeds
+
+Show all feeds stored in the database.
 
 ```
-agg <duration>
+feeds
+```
+
+---
+
+### follow
+
+Follow a feed.
+
+```
+follow <feed_id>
 ```
 
 Example:
 
 ```
-agg 10s
+follow 123
 ```
-
-This will fetch RSS feeds every 10 seconds and store posts in the database.
 
 ---
 
-### Browse posts
+### following
+
+Show all feeds the current user is following.
+
+```
+following
+```
+
+---
+
+### unfollow
+
+Unfollow a feed.
+
+```
+unfollow <feed_url>
+```
+
+  
+
+### browse
+
+Browse the latest posts from feeds the user follows.
 
 ```
 browse [limit]
 ```
 
-Example:
+Examples:
 
 ```
 browse
@@ -149,8 +231,7 @@ browse 10
 
 If no limit is provided, the default is 2 posts.
 
----
-
+ 
 ## Example RSS Feeds
 
 You can test the program with these feeds:
